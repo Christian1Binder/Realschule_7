@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz: Die Renaissance</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #f6f7fb; color: #111; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 18px; }
+    header { background: white; border-bottom: 1px solid #e6e8f0; position: sticky; top: 0; z-index: 5; }
+    header .wrap { display:flex; gap: 12px; align-items: center; justify-content: space-between; }
+    h1 { font-size: 18px; margin: 0; }
+    .meta { font-size: 13px; color: #444; }
+    .card { background: white; border: 1px solid #e6e8f0; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
+    .row { display: grid; gap: 14px; }
+    .q-title { font-weight: 700; margin: 0 0 8px 0; }
+    .q-sub { margin: 0 0 12px 0; color: #333; }
+    .answers { display: grid; gap: 10px; margin-top: 8px; }
+    button.choice {
+      text-align: left;
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid #d9dceb;
+      background: #fff;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1.25;
+      transition: transform .02s ease, background .2s ease, border-color .2s ease;
+    }
+    button.choice:active { transform: scale(0.99); }
+    button.choice[disabled] { cursor: not-allowed; opacity: 0.95; }
+    .feedback { margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
+    .ok { background: #e9f7ee; border: 1px solid #bfe7cd; }
+    .bad { background: #fff1f1; border: 1px solid #f1b8b8; }
+    .controls { display:flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .btn {
+      border: 1px solid #d9dceb;
+      background: #111;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .btn.secondary { background: #fff; color: #111; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .progress {
+      display:flex; align-items:center; gap: 10px; justify-content: flex-end;
+      font-size: 13px; color: #444;
+    }
+    .bar { width: 160px; height: 10px; border-radius: 999px; background: #e9ebf6; overflow: hidden; border: 1px solid #dde0ee; }
+    .bar > div { height: 100%; width: 0%; background: #111; }
+    .small { font-size: 12px; color: #555; margin: 8px 0 0; }
+    footer { margin: 18px 0 0; color: #666; font-size: 12px; text-align: center; }
+    code.kbd { padding: 2px 6px; border-radius: 8px; background: #eef0f7; border: 1px solid #dde0ee; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div>
+        <h1>Quiz: Die Renaissance</h1>
+        <div class="meta">Abfrage der besprochenen Inhalte (ohne zusätzliche Themen)</div>
+      </div>
+      <div class="progress" aria-live="polite">
+        <div><span id="pos">1</span>/<span id="total">0</span> • Punkte: <span id="score">0</span></div>
+        <div class="bar" aria-label="Fortschritt"><div id="barFill"></div></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="row">
+      <section class="card" id="quizCard" aria-live="polite">
+        <p class="q-title" id="qTitle"></p>
+        <p class="q-sub" id="qText"></p>
+        <div class="answers" id="answers"></div>
+        <div id="feedback" class="feedback" style="display:none;"></div>
+
+        <div class="controls">
+          <button class="btn secondary" id="restartBtn" type="button">Neu starten</button>
+          <button class="btn" id="nextBtn" type="button" disabled>Nächste Frage</button>
+        </div>
+        <p class="small">Tipp: Antworte per Klick. Danach wird die richtige Lösung kurz erklärt.</p>
+      </section>
+
+      <section class="card" id="doneCard" style="display:none;">
+        <p class="q-title">Fertig!</p>
+        <p class="q-sub" id="doneText"></p>
+        <div class="controls">
+          <button class="btn" id="restartBtn2" type="button">Noch einmal</button>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      Datei lokal öffnen: Speichern als <code class="kbd">renaissance-quiz.html</code> und doppelklicken.
+    </footer>
+  </main>
+
+  <script>
+    // Quiz-Daten: ausschließlich aus den oben besprochenen Inhalten abgeleitet.
+    const QUESTIONS = [
+      {
+        title: "Begriff",
+        text: "Was bedeutet „Renaissance“?",
+        choices: ["Wiedergeburt der Antike", "Ende des Mittelalters", "Beginn der Kreuzzüge", "Verbot von Büchern"],
+        answer: 0,
+        explain: "Renaissance bedeutet „Wiedergeburt“ der Antike."
+      },
+      {
+        title: "Zeitliche Einordnung",
+        text: "Zwischen welchen Jahrhunderten geriet die mittelalterliche Denkweise ins Wanken?",
+        choices: ["Zwischen dem 14. und 15. Jahrhundert", "Zwischen dem 10. und 11. Jahrhundert", "Zwischen dem 18. und 19. Jahrhundert", "Zwischen dem 5. und 6. Jahrhundert"],
+        answer: 0,
+        explain: "Im Arbeitsblatt steht: Zwischen dem 14. und dem 15. Jh. gerät die mittelalterliche Denkweise ins Wanken."
+      },
+      {
+        title: "Kontakt zum Orient",
+        text: "Wodurch kamen Menschen mit dem Orient in Kontakt?",
+        choices: ["Durch die Kreuzzüge", "Durch die Industrialisierung", "Durch die Erfindung des Autos", "Durch den Buchdruck in Amerika"],
+        answer: 0,
+        explain: "Seit den Kreuzzügen kamen die Menschen mit dem Orient in Kontakt."
+      },
+      {
+        title: "Folge der Kulturbegegnung",
+        text: "Was entstand durch die Kulturbegegnung mit dem Orient?",
+        choices: ["Ein Wissenszuwachs", "Ein generelles Bücherverbot", "Der vollständige Verlust antiken Wissens", "Nur religiöse Vorschriften"],
+        answer: 0,
+        explain: "Durch die Kulturbegegnung erhielten die Menschen einen Wissenszuwachs."
+      },
+      {
+        title: "Antikes Wissen im Mittelalter",
+        text: "Warum geriet antikes Wissen im Mittelalter in Vergessenheit?",
+        choices: [
+          "Es wurde als heidnisch abgelehnt",
+          "Es gab keine Bibliotheken",
+          "Es war nur in Stein gemeißelt",
+          "Es durfte nur in Städten gelesen werden"
+        ],
+        answer: 0,
+        explain: "Antikes Wissen der Römer und Griechen wurde als heidnisch abgelehnt und geriet so in Vergessenheit."
+      },
+      {
+        title: "Antike Kulturen",
+        text: "Welche zwei antiken Kulturen werden genannt?",
+        choices: ["Römer und Griechen", "Ägypter und Azteken", "Wikinger und Kelten", "Chinesen und Japaner"],
+        answer: 0,
+        explain: "Im Text steht: antikes Wissen der Römer und Griechen."
+      },
+      {
+        title: "Arbeitsweise der Gelehrten",
+        text: "Wo suchten Gelehrte nach Büchern aus der Antike?",
+        choices: ["In Bibliotheken und Klöstern", "In Fabriken", "Auf Marktplätzen", "In Festungen"],
+        answer: 0,
+        explain: "Gelehrte forschten in Bibliotheken und Klöstern nach Büchern aus dieser Zeit."
+      },
+      {
+        title: "Wissensweitergabe",
+        text: "Was geschah mit einem neuen Fund (Buch/Schrift) aus der Antike?",
+        choices: [
+          "Er wurde abgeschrieben und an andere Gelehrte geschickt",
+          "Er wurde verbrannt",
+          "Er wurde geheim im Palast eingeschlossen",
+          "Er wurde sofort gedruckt und verschenkt"
+        ],
+        answer: 0,
+        explain: "Jeder neue Fund wurde abgeschrieben und anderen Gelehrten zugeschickt."
+      },
+      {
+        title: "Ideale der Renaissance",
+        text: "Was war die Idealvorstellung der Gelehrten der Renaissance?",
+        choices: [
+          "Wissenschaftlich arbeiten ohne Einschränkung durch religiöse Vorschriften der Kirche",
+          "Nur religiöse Regeln befolgen",
+          "Keine Forschung betreiben",
+          "Alles Wissen aus der Antike ablehnen"
+        ],
+        answer: 0,
+        explain: "Im Text: ohne Einschränkung durch die religiösen Vorschriften der Kirche wissenschaftlich arbeiten können."
+      },
+      {
+        title: "Philosophische Schlagworte",
+        text: "Welche Begriffe waren für die Renaissance wichtig? (eine richtige Auswahl)",
+        choices: [
+          "Vernunft, Wissenschaft, Gewissen",
+          "Religion, Krieg, Vernunft",
+          "Krieg, Moral, Religion",
+          "Krieg, Gewissen, Religion"
+        ],
+        answer: 0,
+        explain: "Markiert waren: Vernunft, Wissenschaft, Gewissen."
+      },
+      {
+        title: "Kunstwerk",
+        text: "Wer ist auf dem Bild als Statue dargestellt?",
+        choices: ["David", "Goliath", "Julius Caesar", "Aristoteles"],
+        answer: 0,
+        explain: "Im Arbeitsblatt: David (König aus der Bibel, vs. Goliath)."
+      },
+      {
+        title: "Material",
+        text: "Aus welchem Material ist die David-Statue?",
+        choices: ["Marmor", "Holz", "Bronze", "Ton"],
+        answer: 0,
+        explain: "Im Blatt steht: Material = Marmor."
+      },
+      {
+        title: "Wirkung/Detail",
+        text: "Welches Detail hebt der Künstler besonders hervor?",
+        choices: ["Den Körper (z. B. Muskeln, Haare)", "Nur die Kleidung", "Nur das Schwert", "Nur den Hintergrund"],
+        answer: 0,
+        explain: "Antwort im Blatt: den Körper (Muskeln, Haare...)."
+      },
+      {
+        title: "Architektur",
+        text: "Woran orientierte sich die Architektur in der Renaissance?",
+        choices: ["An antiken Tempeln", "An Fabrikhallen", "An Burgen des frühen Mittelalters", "An modernen Wolkenkratzern"],
+        answer: 0,
+        explain: "In der Mindmap: Orientierung an antiken Tempeln."
+      },
+      {
+        title: "Merkmale der Architektur",
+        text: "Welche Merkmale werden für die Renaissance-Architektur genannt?",
+        choices: ["Säulen und Kuppeldächer", "Zelte und Holzhütten", "Glasfassaden und Stahlträger", "Nur Rundburgen"],
+        answer: 0,
+        explain: "In der Mindmap: Säulen, Kuppeldächer."
+      },
+      {
+        title: "Kunst – Orientierung",
+        text: "Woran orientierte sich die Kunst in der Renaissance?",
+        choices: ["An griechisch-römischen Traditionen", "An reiner Kriegskunst", "Nur an kirchlichen Verboten", "Nur an zufälligen Formen"],
+        answer: 0,
+        explain: "In der Mindmap: Orientierung an griechisch-römischen Traditionen."
+      },
+      {
+        title: "Kunst – Darstellung",
+        text: "Wie wurde der Mensch in der Renaissance-Kunst dargestellt?",
+        choices: ["Detailgetreu", "Nur als Symbol ohne Details", "Immer verdeckt", "Nur als Schatten"],
+        answer: 0,
+        explain: "In der Mindmap: detailgetreue Darstellung von Menschen."
+      },
+      {
+        title: "Antike Philosophen",
+        text: "Welche antiken Philosophen werden genannt?",
+        choices: ["Sokrates, Platon, Aristoteles", "Newton, Einstein, Curie", "Luther, Calvin, Zwingli", "Napoleon, Caesar, Alexander"],
+        answer: 0,
+        explain: "In der Mindmap: Sokrates, Platon, Aristoteles."
+      },
+      {
+        title: "Bücher",
+        text: "Was ist ein genanntes Problem rund um Bücher in der Renaissance?",
+        choices: ["Bücher waren teuer", "Bücher gab es gar nicht", "Bücher waren immer kostenlos", "Bücher durften nie gelesen werden"],
+        answer: 0,
+        explain: "In der Mindmap: Bücher werden beliebter – Problem: teuer."
+      },
+      {
+        title: "Handschriften",
+        text: "Was ist ein weiteres Problem bei Büchern/Handschriften?",
+        choices: ["Handschriften dauerten lange, weil sie per Hand geschrieben wurden", "Handschriften wurden automatisch kopiert", "Handschriften gab es nur als Bilder", "Handschriften waren immer gedruckt"],
+        answer: 0,
+        explain: "In der Mindmap: Handschrift per Hand, dauerte lange."
+      },
+      {
+        title: "Forschung ohne Zwang",
+        text: "Was steht in der Mindmap zur Forschung?",
+        choices: ["Forschen und Entdecken ohne Zwang der Kirche", "Forschen nur mit Zwang der Kirche", "Keine Forschung erlaubt", "Forschung nur für Krieg"],
+        answer: 0,
+        explain: "In der Mindmap: Forschen und Entdecken ohne Zwang der Kirche."
+      },
+      {
+        title: "Bedeutung der Antike",
+        text: "Was wurde in der Renaissance wieder wichtig?",
+        choices: ["Wissen der Antike", "Nur neue Kriegstechniken", "Nur mittelalterliche Verbote", "Nur Zufallsentdeckungen ohne Quellen"],
+        answer: 0,
+        explain: "In der Mindmap: Wissen der Antike / römische und griechische Philosophen wieder wichtig."
+      }
+    ];
+
+    // State
+    let order = [];
+    let idx = 0;
+    let score = 0;
+    let locked = false;
+
+    const elPos = document.getElementById("pos");
+    const elTotal = document.getElementById("total");
+    const elScore = document.getElementById("score");
+    const elBar = document.getElementById("barFill");
+
+    const elQTitle = document.getElementById("qTitle");
+    const elQText = document.getElementById("qText");
+    const elAnswers = document.getElementById("answers");
+    const elFeedback = document.getElementById("feedback");
+    const elNext = document.getElementById("nextBtn");
+    const elRestart = document.getElementById("restartBtn");
+    const elRestart2 = document.getElementById("restartBtn2");
+    const elQuizCard = document.getElementById("quizCard");
+    const elDoneCard = document.getElementById("doneCard");
+    const elDoneText = document.getElementById("doneText");
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function resetQuiz() {
+      order = shuffle([...Array(QUESTIONS.length).keys()]);
+      idx = 0;
+      score = 0;
+      locked = false;
+      elTotal.textContent = String(QUESTIONS.length);
+      elScore.textContent = "0";
+      elQuizCard.style.display = "";
+      elDoneCard.style.display = "none";
+      renderQuestion();
+    }
+
+    function renderQuestion() {
+      locked = false;
+      elNext.disabled = true;
+      elFeedback.style.display = "none";
+      elFeedback.className = "feedback";
+      elFeedback.textContent = "";
+
+      const q = QUESTIONS[order[idx]];
+      elPos.textContent = String(idx + 1);
+      elQTitle.textContent = q.title;
+      elQText.textContent = q.text;
+
+      // Progress bar
+      const pct = Math.round(((idx) / QUESTIONS.length) * 100);
+      elBar.style.width = pct + "%";
+
+      // Build answers (keep correct position but shuffle display without changing truth)
+      // We create a mapping array so we can shuffle buttons but still check correctness.
+      const mapping = q.choices.map((_, i) => i);
+      shuffle(mapping);
+
+      elAnswers.innerHTML = "";
+      mapping.forEach(choiceIndex => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice";
+        btn.textContent = q.choices[choiceIndex];
+        btn.addEventListener("click", () => choose(choiceIndex, q.answer, q.explain));
+        elAnswers.appendChild(btn);
+      });
+    }
+
+    function choose(chosenIndex, correctIndex, explain) {
+      if (locked) return;
+      locked = true;
+
+      const buttons = [...elAnswers.querySelectorAll("button.choice")];
+      buttons.forEach(b => b.disabled = true);
+
+      const isCorrect = chosenIndex === correctIndex;
+      if (isCorrect) score++;
+      elScore.textContent = String(score);
+
+      elFeedback.style.display = "";
+      elFeedback.classList.add(isCorrect ? "ok" : "bad");
+      elFeedback.textContent = (isCorrect ? "✅ Richtig. " : "❌ Falsch. ") + explain;
+
+      elNext.disabled = false;
+
+      // Progress bar update (after answer)
+      const pct = Math.round(((idx + 1) / QUESTIONS.length) * 100);
+      elBar.style.width = pct + "%";
+    }
+
+    function next() {
+      if (idx < QUESTIONS.length - 1) {
+        idx++;
+        renderQuestion();
+      } else {
+        finish();
+      }
+    }
+
+    function finish() {
+      elQuizCard.style.display = "none";
+      elDoneCard.style.display = "";
+      const percent = Math.round((score / QUESTIONS.length) * 100);
+      elDoneText.textContent = `Du hast ${score} von ${QUESTIONS.length} richtig (${percent}%).`;
+    }
+
+    elNext.addEventListener("click", next);
+    elRestart.addEventListener("click", resetQuiz);
+    elRestart2.addEventListener("click", resetQuiz);
+
+    // Start
+    resetQuiz();
+  </script>
+</body>
+</html>
