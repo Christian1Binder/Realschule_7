@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz – Herz & Blutkreislauf</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f6f7fb; color:#111; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 18px; }
+    header { background: #fff; border: 1px solid #e6e8f0; border-radius: 16px; padding: 16px; box-shadow: 0 8px 20px rgba(0,0,0,.04); }
+    h1 { margin: 0 0 6px; font-size: 20px; }
+    .sub { margin: 0; color: #444; font-size: 14px; line-height: 1.35; }
+
+    .card { margin-top: 14px; background:#fff; border:1px solid #e6e8f0; border-radius:16px; padding:16px; box-shadow: 0 8px 20px rgba(0,0,0,.04); }
+    .row { display:flex; gap:12px; flex-wrap: wrap; align-items: center; }
+    .pill { display:inline-flex; gap:8px; align-items:center; padding: 8px 10px; border-radius: 999px; border:1px solid #e6e8f0; background:#fafbff; font-size: 13px; }
+    .pill b { font-variant-numeric: tabular-nums; }
+
+    .qTitle { margin: 0 0 10px; font-size: 16px; }
+    .choices { display: grid; gap: 10px; }
+    .choiceBtn {
+      width: 100%;
+      text-align: left;
+      border: 1px solid #e6e8f0;
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1.3;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+    }
+    .choiceBtn:hover { transform: translateY(-1px); background:#fafbff; }
+    .choiceBtn[disabled] { cursor: not-allowed; opacity: .95; transform:none; }
+
+    .ok { border-color: #b9f3c7 !important; background: #f1fff5 !important; }
+    .bad { border-color: #ffd0d0 !important; background: #fff4f4 !important; }
+    .muted { color:#444; font-size: 13px; margin: 10px 0 0; line-height: 1.35; }
+
+    .actions { display:flex; gap:10px; flex-wrap: wrap; margin-top: 14px; }
+    button.ctrl {
+      border: 1px solid #e6e8f0;
+      background: #111;
+      color: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.ctrl.secondary { background:#fff; color:#111; }
+    button.ctrl:disabled { opacity: .55; cursor:not-allowed; }
+
+    .end { display:none; }
+    .end h2 { margin: 0 0 10px; font-size: 18px; }
+    .review { margin-top: 10px; display:grid; gap:10px; }
+    .revItem { border:1px solid #e6e8f0; border-radius: 14px; padding: 12px; background:#fff; }
+    .revQ { margin: 0 0 6px; font-weight: 650; font-size: 14px; }
+    .revA { margin: 0; font-size: 13px; color:#222; line-height: 1.35; }
+    .tag { display:inline-block; margin-top: 8px; font-size: 12px; padding: 4px 8px; border-radius: 999px; border:1px solid #e6e8f0; background:#fafbff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Quiz – Herz & Blutkreislauf</h1>
+      <p class="sub">
+        Abfrage der Inhalte aus euren Lernkarten (Herz, Klappen, Gefäße, kleiner/großer Kreislauf, Kapillaren, benannte Gefäße).
+        Keine Zusatzinhalte.
+      </p>
+    </header>
+
+    <section class="card" id="hud">
+      <div class="row">
+        <span class="pill">Frage: <b id="qIdx">0</b>/<b id="qTotal">0</b></span>
+        <span class="pill">Punkte: <b id="score">0</b></span>
+        <span class="pill">Richtig: <b id="right">0</b></span>
+        <span class="pill">Falsch: <b id="wrong">0</b></span>
+      </div>
+      <div class="actions">
+        <button class="ctrl secondary" id="restartBtn" type="button">Neu starten</button>
+        <button class="ctrl secondary" id="toggleExplainBtn" type="button">Erklärungen: AN</button>
+      </div>
+    </section>
+
+    <section class="card" id="quizCard">
+      <p class="qTitle" id="question">…</p>
+      <div class="choices" id="choices"></div>
+      <p class="muted" id="explain"></p>
+      <div class="actions">
+        <button class="ctrl" id="nextBtn" type="button" disabled>Nächste Frage</button>
+      </div>
+    </section>
+
+    <section class="card end" id="endCard">
+      <h2>Fertig ✅</h2>
+      <p class="sub" id="summary"></p>
+      <div class="actions">
+        <button class="ctrl" id="againBtn" type="button">Nochmal (neu gemischt)</button>
+      </div>
+      <div class="review" id="review"></div>
+    </section>
+  </div>
+
+  <script>
+    // =========================================================
+    // Fragenbank – NUR Inhalte aus den oben besprochenen Karten
+    // =========================================================
+    const BANK = [
+      { q: "Wofür sorgt die Herzklappenfunktion grundsätzlich?", a: "Dass das Blut immer in die gleiche Richtung fließt.", w: [
+        "Dass das Blut Sauerstoff aufnimmt.",
+        "Dass Arterien und Venen gleich dick sind.",
+        "Dass Blut außerhalb der Gefäße fließt."
+      ], e: "Herzklappen sorgen dafür, dass Blut im Herzen nur in eine Richtung fließt." },
+
+      { q: "Was verhindern Segelklappen?", a: "Den Rückfluss des Blutes von den Herzkammern in die Vorhöfe.", w: [
+        "Den Rückfluss des Blutes aus den Arterien in die Herzkammern.",
+        "Den Austausch von Sauerstoff in den Kapillaren.",
+        "Dass Blut in den Venen zum Herzen gelangt."
+      ], e: "Segelklappen liegen zwischen Vorhof und Herzkammer." },
+
+      { q: "Was verhindern Taschenklappen?", a: "Den Rückfluss des Blutes aus den Arterien in die Herzkammern.", w: [
+        "Den Rückfluss des Blutes von den Herzkammern in die Vorhöfe.",
+        "Dass Blut unter hohem Druck fließt.",
+        "Den Stoffaustausch in Kapillaren."
+      ], e: "Taschenklappen liegen zwischen Herzkammer und Arterie." },
+
+      { q: "Welche Aussage beschreibt Arterien korrekt?", a: "Sie führen Blut vom Herzen weg und besitzen dicke Muskelwände.", w: [
+        "Sie führen Blut zum Herzen hin und besitzen dünnere Muskelwände als Arterien.",
+        "In ihnen fließt Blut langsam für den Stoffaustausch.",
+        "Sie machen den Blutkreislauf zu einem offenen System."
+      ], e: "Arterien: vom Herzen weg, hoher Druck, dicke Muskelwände." },
+
+      { q: "Welche Aussage beschreibt Venen korrekt?", a: "Sie führen Blut zum Herzen hin und haben dünnere Muskelwände als Arterien.", w: [
+        "Sie führen Blut vom Herzen weg und haben dicke Muskelwände.",
+        "In ihnen fließt Blut am höchsten Druck.",
+        "Sie sind die feinsten Blutgefäße für den Stoffaustausch."
+      ], e: "Venen: zum Herzen, geringerer Druck, dünnere Muskelwände." },
+
+      { q: "Wozu dienen Venenklappen?", a: "Sie verhindern den Rückfluss und machen die Venen zu Einbahnstraßen.", w: [
+        "Sie lassen Blut zurück in die Arme fließen.",
+        "Sie machen Arterien zu Einbahnstraßen.",
+        "Sie sorgen dafür, dass Blut Sauerstoff abgibt."
+      ], e: "Venenklappen verhindern Rückfluss in den Venen." },
+
+      { q: "Was verbinden Kapillaren im Körper?", a: "Arterien und Venen.", w: [
+        "Lungenarterie und Lungenvene direkt im Herzen.",
+        "Aorta und Herzscheidewand.",
+        "Sinusknoten und Herzmuskel."
+      ], e: "Kapillaren verbinden Arterien und Venen." },
+
+      { q: "Wie fließt das Blut in Kapillaren?", a: "Langsam.", w: [
+        "Unter hohem Druck.",
+        "Nur stoßweise durch Klappen.",
+        "Nur in Richtung Lunge."
+      ], e: "Langsamer Blutfluss ermöglicht Stoffaustausch." },
+
+      { q: "Welche Aufgabe haben Kapillaren laut Inhalt?", a: "Austausch von Sauerstoff, Kohlenstoffdioxid und Nährstoffen zwischen Blut und Zellen.", w: [
+        "Sie verhindern Rückfluss im Herzen.",
+        "Sie pumpen Blut in den Körper.",
+        "Sie sind die größte Arterie des Körpers."
+      ], e: "Stoffaustausch findet in Kapillaren statt." },
+
+      { q: "Warum ist die Verästelung der Kapillaren wichtig?", a: "Sie sorgt für eine große Austauschfläche (Oberflächenvergrößerung).", w: [
+        "Sie erhöht den Blutdruck in Venen.",
+        "Sie verhindert den Rückfluss aus Arterien in Herzkammern.",
+        "Sie macht den Kreislauf zu einem offenen System."
+      ], e: "Viele Kapillaren = große Oberfläche für Austausch." },
+
+      { q: "Wie heißt der kleine Kreislauf?", a: "Lungenkreislauf.", w: [
+        "Körperkreislauf.",
+        "Aortakreislauf.",
+        "Venenkreislauf."
+      ], e: "Kleiner Kreislauf = zwischen Herz und Lunge." },
+
+      { q: "Welche Aufgabe hat der Lungenkreislauf?", a: "Transportiert Blut vom Herzen zur Lunge und zurück.", w: [
+        "Versorgt alle Organe direkt mit Sauerstoff und Nährstoffen.",
+        "Verhindert Rückfluss in den Arterien.",
+        "Teilt das Herz in zwei Hälften."
+      ], e: "Lungenkreislauf: Herz ↔ Lunge." },
+
+      { q: "Wie heißt der große Kreislauf?", a: "Körperkreislauf.", w: [
+        "Lungenkreislauf.",
+        "Herzmuskelkreislauf.",
+        "Kapillarkreislauf."
+      ], e: "Großer Kreislauf = durch den gesamten Körper." },
+
+      { q: "Welche Aufgabe hat der Körperkreislauf?", a: "Versorgt alle Organe mit Sauerstoff und Nährstoffen.", w: [
+        "Bringt Blut nur zur Lunge.",
+        "Verhindert Rückfluss in Venen.",
+        "Erzeugt elektrische Impulse."
+      ], e: "Körperkreislauf: Versorgung der Organe." },
+
+      { q: "Was bedeutet: geschlossener Blutkreislauf?", a: "Das Blut bleibt immer innerhalb der Blutgefäße.", w: [
+        "Das Blut fließt außerhalb der Gefäße in den Körperraum.",
+        "Das Blut wechselt ständig die Richtung im Herzen.",
+        "Das Blut fließt nur in Kapillaren."
+      ], e: "Geschlossen = Blut bleibt in Gefäßen." },
+
+      { q: "Welche Struktur teilt das Herz in linke und rechte Hälfte?", a: "Herzscheidewand.", w: [
+        "Aorta.",
+        "Segelklappen.",
+        "Lungenkapillaren."
+      ], e: "Die Herzscheidewand trennt die Herzhälften." },
+
+      { q: "Welche Herzhälfte pumpt sauerstoffarmes Blut in die Lunge (laut Lerninhalt)?", a: "Die rechte Herzkammer.", w: [
+        "Der linke Vorhof.",
+        "Die linke Herzkammer.",
+        "Die Aorta."
+      ], e: "Rechte Herzkammer → Lungenarterie → Lunge." },
+
+      { q: "Welche Herzhälfte pumpt sauerstoffreiches Blut in den Körper (laut Lerninhalt)?", a: "Die linke Herzkammer.", w: [
+        "Der rechte Vorhof.",
+        "Die rechte Herzkammer.",
+        "Die Lungenarterie."
+      ], e: "Linke Herzkammer → Aorta → Körper." },
+
+      { q: "Was transportiert die Lungenarterie?", a: "Sauerstoffarmes Blut vom Herzen zur Lunge.", w: [
+        "Sauerstoffreiches Blut von der Lunge zum Herzen.",
+        "Sauerstoffreiches Blut vom Herzen in den Körper.",
+        "Sauerstoffarmes Blut aus den Nieren zurück."
+      ], e: "Lungenarterie führt (hier) sauerstoffarmes Blut zur Lunge." },
+
+      { q: "Was transportiert die Lungenvene?", a: "Sauerstoffreiches Blut von der Lunge zum Herzen.", w: [
+        "Sauerstoffarmes Blut vom Herzen zur Lunge.",
+        "Sauerstoffreiches Blut vom Herzen in den Körper.",
+        "Sauerstoffarmes Blut vom Kopf zur Aorta."
+      ], e: "Lungenvene führt sauerstoffreiches Blut zurück." },
+
+      { q: "Was ist die Aorta in diesem Stoff?", a: "Die größte Arterie des Körpers; sie leitet sauerstoffreiches Blut in den Körper.", w: [
+        "Eine Vene, die Blut zum Herzen bringt.",
+        "Eine Kapillare für den Stoffaustausch.",
+        "Eine Klappe zwischen Vorhof und Kammer."
+      ], e: "Aorta/Körperarterie: weg vom Herzen, in den Körper." },
+
+      { q: "Was machen die Lungenkapillaren?", a: "Hier gibt das Blut Kohlenstoffdioxid ab und nimmt Sauerstoff auf.", w: [
+        "Hier gibt das Blut Sauerstoff ab und nimmt Kohlenstoffdioxid auf.",
+        "Hier verhindern Klappen den Rückfluss.",
+        "Hier wird Blut in den Körper gepumpt."
+      ], e: "Gasaustausch in der Lunge: CO₂ ab, O₂ auf." },
+
+      { q: "Was machen die Körperkapillaren?", a: "Hier gibt das Blut Sauerstoff ab und nimmt Kohlenstoffdioxid auf.", w: [
+        "Hier gibt das Blut Kohlenstoffdioxid ab und nimmt Sauerstoff auf.",
+        "Hier fließt Blut unter hohem Druck vom Herzen weg.",
+        "Hier verhindern Taschenklappen den Rückfluss."
+      ], e: "Im Körper: O₂ ab an Zellen, CO₂ auf." },
+
+      { q: "Was leistet die obere Hohlvene?", a: "Sie leitet Blut aus Kopf und Armen zum Herzen.", w: [
+        "Sie leitet sauerstoffreiches Blut vom Herzen in den Körper.",
+        "Sie führt Blut vom Herzen zur Lunge.",
+        "Sie verbindet Arterien und Venen."
+      ], e: "Obere Hohlvene: Rückweg aus oberen Körperbereichen." },
+
+      { q: "Was leistet die untere Hohlvene?", a: "Sie leitet Blut aus dem unteren Körperbereich zum Herzen.", w: [
+        "Sie leitet sauerstoffreiches Blut in die Beine.",
+        "Sie pumpt Blut aktiv durch den Körper.",
+        "Sie nimmt Sauerstoff in der Lunge auf."
+      ], e: "Untere Hohlvene: Rückweg aus unteren Körperbereichen." },
+
+      { q: "Welche Aussage passt zur Kopfarterie/Kopfvene im Bild?", a: "Kopfarterie führt sauerstoffreiches Blut zum Kopf; Kopfvene führt sauerstoffarmes Blut zurück.", w: [
+        "Beide führen sauerstoffreiches Blut zum Herzen.",
+        "Kopfarterie führt sauerstoffarmes Blut; Kopfvene führt sauerstoffreiches Blut.",
+        "Beide sind Kapillaren für den Stoffaustausch."
+      ], e: "Arterie hin (vom Herzen weg), Vene zurück (zum Herzen hin)." },
+
+      { q: "Welche Aussage passt zur Armarterie/Armvene im Bild?", a: "Armarterie führt sauerstoffreiches Blut in den Arm; Armvene führt sauerstoffarmes Blut zurück.", w: [
+        "Armarterie führt sauerstoffarmes Blut zum Herzen.",
+        "Armvene führt sauerstoffreiches Blut vom Herzen weg.",
+        "Armarterie ist eine Klappe im Herzen."
+      ], e: "Arterie weg, Vene zurück." },
+
+      { q: "Welche Aussage passt zur Nierenarterie/Nierenvene im Bild?", a: "Nierenarterie versorgt die Nieren mit sauerstoffreichem Blut; Nierenvene führt sauerstoffarmes Blut zurück.", w: [
+        "Nierenarterie führt Blut zur Lunge; Nierenvene pumpt Blut.",
+        "Beide sind Kapillaren.",
+        "Nierenvene führt sauerstoffreiches Blut vom Herzen weg."
+      ], e: "Wie im Lernkartenformat: Arterie hin, Vene zurück." },
+
+      { q: "Welche Aussage beschreibt die Blutgefäß-Arten korrekt?", a: "Es gibt Arterien, Venen und Kapillaren.", w: [
+        "Es gibt nur Arterien und Venen.",
+        "Es gibt Herzklappen, Arterien und Herzmuskel.",
+        "Es gibt nur Kapillaren und Aorta."
+      ], e: "Genau diese drei Arten wurden genannt." }
+    ];
+
+    // =========================================================
+    // Quiz-Engine
+    // =========================================================
+    const $ = (id) => document.getElementById(id);
+
+    let state = {
+      idx: 0,
+      score: 0,
+      right: 0,
+      wrong: 0,
+      showExplain: true,
+      order: [],
+      answered: false,
+      history: [] // {q, correct, chosen, answer, explain}
+    };
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function buildOrder() {
+      state.order = shuffle([...Array(BANK.length).keys()]);
+      state.idx = 0;
+      state.score = 0;
+      state.right = 0;
+      state.wrong = 0;
+      state.answered = false;
+      state.history = [];
+    }
+
+    function setHud() {
+      $("qTotal").textContent = String(BANK.length);
+      $("qIdx").textContent = String(state.idx + 1);
+      $("score").textContent = String(state.score);
+      $("right").textContent = String(state.right);
+      $("wrong").textContent = String(state.wrong);
+    }
+
+    function renderQuestion() {
+      $("endCard").style.display = "none";
+      $("quizCard").style.display = "block";
+
+      const item = BANK[state.order[state.idx]];
+      $("question").textContent = item.q;
+
+      const choices = shuffle([item.a, ...item.w]);
+      const choicesEl = $("choices");
+      choicesEl.innerHTML = "";
+
+      $("explain").textContent = "";
+      $("nextBtn").disabled = true;
+      state.answered = false;
+
+      choices.forEach((text) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choiceBtn";
+        btn.textContent = text;
+        btn.addEventListener("click", () => onChoose(btn, text, item));
+        choicesEl.appendChild(btn);
+      });
+
+      setHud();
+    }
+
+    function lockChoices() {
+      [...$("choices").querySelectorAll("button")].forEach(b => b.disabled = true);
+    }
+
+    function onChoose(btn, chosen, item) {
+      if (state.answered) return;
+      state.answered = true;
+
+      const correct = chosen === item.a;
+      lockChoices();
+
+      // markieren
+      [...$("choices").querySelectorAll("button")].forEach(b => {
+        if (b.textContent === item.a) b.classList.add("ok");
+      });
+      if (!correct) btn.classList.add("bad");
+
+      if (correct) {
+        state.right += 1;
+        state.score += 1;
+      } else {
+        state.wrong += 1;
+      }
+
+      if (state.showExplain && item.e) {
+        $("explain").textContent = "Erklärung: " + item.e;
+      } else {
+        $("explain").textContent = "";
+      }
+
+      state.history.push({
+        q: item.q,
+        correct,
+        chosen,
+        answer: item.a,
+        explain: item.e || ""
+      });
+
+      $("nextBtn").disabled = false;
+      setHud();
+    }
+
+    function next() {
+      if (state.idx < BANK.length - 1) {
+        state.idx += 1;
+        renderQuestion();
+      } else {
+        renderEnd();
+      }
+    }
+
+    function renderEnd() {
+      $("quizCard").style.display = "none";
+      $("endCard").style.display = "block";
+
+      const total = BANK.length;
+      const s = `Ergebnis: ${state.score} Punkt(e) • Richtig: ${state.right} • Falsch: ${state.wrong} • Fragen: ${total}`;
+      $("summary").textContent = s;
+
+      const review = $("review");
+      review.innerHTML = "";
+
+      state.history.forEach((h, i) => {
+        const box = document.createElement("div");
+        box.className = "revItem";
+
+        const q = document.createElement("p");
+        q.className = "revQ";
+        q.textContent = `${i + 1}. ${h.q}`;
+
+        const a = document.createElement("p");
+        a.className = "revA";
+        a.textContent = `Deine Antwort: ${h.chosen} — Korrekt: ${h.answer}`;
+
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = h.correct ? "✅ richtig" : "❌ falsch";
+
+        box.appendChild(q);
+        box.appendChild(a);
+        box.appendChild(tag);
+
+        if (state.showExplain && h.explain) {
+          const e = document.createElement("p");
+          e.className = "revA";
+          e.style.marginTop = "8px";
+          e.textContent = "Erklärung: " + h.explain;
+          box.appendChild(e);
+        }
+
+        review.appendChild(box);
+      });
+    }
+
+    // Controls
+    $("nextBtn").addEventListener("click", next);
+
+    function restart() {
+      buildOrder();
+      $("toggleExplainBtn").textContent = state.showExplain ? "Erklärungen: AN" : "Erklärungen: AUS";
+      renderQuestion();
+    }
+
+    $("restartBtn").addEventListener("click", restart);
+    $("againBtn").addEventListener("click", restart);
+
+    $("toggleExplainBtn").addEventListener("click", () => {
+      state.showExplain = !state.showExplain;
+      $("toggleExplainBtn").textContent = state.showExplain ? "Erklärungen: AN" : "Erklärungen: AUS";
+      // wenn gerade eine Frage angezeigt wird: Erklärung ggf. ausblenden (ohne neue Inhalte zu erzeugen)
+      if ($("quizCard").style.display !== "none" && state.answered) {
+        const item = BANK[state.order[state.idx]];
+        $("explain").textContent = (state.showExplain && item.e) ? ("Erklärung: " + item.e) : "";
+      }
+      if ($("endCard").style.display !== "none") {
+        renderEnd();
+      }
+    });
+
+    // Init
+    buildOrder();
+    renderQuestion();
+  </script>
+</body>
+</html>
